@@ -1,0 +1,31 @@
+use std::str::FromStr;
+use lalrpop_util::ParseError;
+
+grammar(xaxis: &mut [f32]);
+
+pub Expr: f64 = {
+    <l:Expr> "+" <r:Factor> => l + r,
+    <l:Expr> "-" <r:Factor> => l - r,
+    Factor,
+};
+
+Factor: f64 = {
+    <l:Factor> "*" <r:Power> => l * r,
+    <l:Factor> "/" <r:Power> => l / r,
+    Power,
+};
+
+Power: f64 = {
+    <l:Term> "**" <r:Term> => l.powf(r),
+    Term,
+}
+
+Term: f64 = {
+    Num,
+    "(" <Expr> ")",
+};
+
+Num: f64 = {
+    "1" =>? Err(ParseError::User { error: "I don't like ones" }),
+    r"[0-9]+(\.[0-9]*)?" => f64::from_str(<>).unwrap(),
+};

@@ -1,0 +1,18 @@
+[package]
+name = "formula-parser"
+version = "0.1.0"
+authors = ["Florian Dobener <florian.dobener@schroedingerscat.org>"]
+edition = "2018"
+
+[lib]
+name = "formula_parser"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+lalrpop = "0.19.7"
+
+[dependencies]
+pyo3 = { version = "0.18.1", features = ["extension-module"] }
+numpy = "0.18"
+lalrpop-util = "0.19.7"
+regex = "1"
