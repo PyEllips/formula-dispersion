@@ -28,7 +28,7 @@ Term: Array1<Complex64> = {
 };
 
 Num: Array1<Complex64> = {
-    r"[a-z]+" =>? match <> {
+    r"[a-zA-Z][a-zA-Z0-9]*" =>? match <> {
         x if x == x_axis_name => Ok(Array1::<Complex64>::zeros(x_axis_values.len()) + x_axis_values),
         _ => Err(ParseError::User { error: "Unknown token"}),
     },
