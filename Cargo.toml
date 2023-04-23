@@ -16,3 +16,4 @@ pyo3 = { version = "0.18.1", features = ["extension-module"] }
 numpy = "0.18"
 lalrpop-util = "0.19.7"
 regex = "1"
+num-complex = "0.4.3"

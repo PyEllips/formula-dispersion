@@ -1,32 +1,36 @@
 use std::str::FromStr;
 use lalrpop_util::ParseError;
-use numpy::ndarray::{ArrayView1};
+use numpy::ndarray::{ArrayView1, Array1};
+use num_complex::Complex64;
 
-grammar<T>(x_axis_name: &str, x_axis_values: &ArrayView1<'_, T>);
+grammar(x_axis_name: &str, x_axis_values: &ArrayView1<'_, f64>);
 
-pub Expr: f64 = {
+pub Expr: Array1<Complex64> = {
     <l:Expr> "+" <r:Factor> => l + r,
     <l:Expr> "-" <r:Factor> => l - r,
     Factor,
 };
 
-Factor: f64 = {
+Factor: Array1<Complex64> = {
     <l:Factor> "*" <r:Power> => l * r,
     <l:Factor> "/" <r:Power> => l / r,
     Power,
 };
 
-Power: f64 = {
-    <l:Term> "**" <r:Term> => l.powf(r),
+Power: Array1<Complex64> = {
+    <l:Term> "**" <r:Term> => l,
     Term,
 }
 
-Term: f64 = {
+Term: Array1<Complex64> = {
     Num,
     "(" <Expr> ")",
 };
 
-Num: f64 = {
-    "1" =>? Err(ParseError::User { error: "I don't like ones" }),
-    r"[0-9]+(\.[0-9]*)?" => f64::from_str(<>).unwrap(),
+Num: Array1<Complex64> = {
+    r"[a-z]+" =>? match <> {
+        x if x == x_axis_name => Ok(Array1::<Complex64>::zeros(x_axis_values.len()) + x_axis_values),
+        _ => Err(ParseError::User { error: "Unknown token"}),
+    },
+    r"[0-9]+(\.[0-9]*)?" => Complex64::from_str(<>).unwrap() + Array1::<Complex64>::zeros(x_axis_values.len())
 };

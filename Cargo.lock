@@ -140,6 +140,7 @@ version = "0.1.0"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
+ "num-complex",
  "numpy",
  "pyo3",
  "regex",
