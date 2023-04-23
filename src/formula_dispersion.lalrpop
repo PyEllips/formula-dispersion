@@ -1,7 +1,8 @@
 use std::str::FromStr;
 use lalrpop_util::ParseError;
+use numpy::ndarray::{ArrayView1};
 
-grammar(xaxis: &mut [f32]);
+grammar<T>(x_axis_name: &str, x_axis_values: &ArrayView1<'_, T>);
 
 pub Expr: f64 = {
     <l:Expr> "+" <r:Factor> => l + r,
