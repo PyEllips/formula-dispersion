@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use lalrpop_util::ParseError;
-use numpy::ndarray::{ArrayView1, Array1};
+use numpy::ndarray::{ArrayView1, Array1, Zip};
 use num_complex::Complex64;
 
 grammar(x_axis_name: &str, x_axis_values: &ArrayView1<'_, f64>);
@@ -18,7 +18,7 @@ Factor: Array1<Complex64> = {
 };
 
 Power: Array1<Complex64> = {
-    <l:Term> "**" <r:Term> => l,
+    <l:Term> "**" <r:Term> => Zip::from(&l).and(&r).map_collect(|base, &exp| (*base).powc(exp)),
     Term,
 }
 

@@ -12,6 +12,13 @@ def test_array_parsing():
     assert_array_almost_equal(parsed, np.array([9.0, 18.0, 27.0]))
 
 
+def test_powc():
+    """Using power is working properly"""
+
+    parsed = parse_formula_dispersion("lbda ** 3", "lbda", np.array([1., 2., 3.]))
+    assert_array_almost_equal(parsed, np.array([1., 8., 27.]))
+
+
 def test_fails_on_wrong_token():
     """Array parsing fails on wrong token"""
 
