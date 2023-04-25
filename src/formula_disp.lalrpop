@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::ast::{Expr, Opcode, Func, Constant};
 
-grammar();
+grammar;
 
 pub Formula: Box<Expr<'input>> = {
     "eps" "=" <KKRExpression> => Box::new(Expr::Dielectric(<>)),
