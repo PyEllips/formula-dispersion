@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Error, Formatter};
 
+#[derive(PartialEq)]
 pub enum Expr<'input> {
     Number(i32),
     Op(Box<Expr<'input>>, Opcode, Box<Expr<'input>>),
@@ -13,7 +14,7 @@ pub enum Expr<'input> {
     RepeatedVar(&'input str),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Opcode {
     Mul,
     Div,
@@ -22,7 +23,7 @@ pub enum Opcode {
     Pow,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Func {
     Sin,
     Cos,
@@ -34,7 +35,7 @@ pub enum Func {
     Heaviside,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Constant {
     I,
     Pi,

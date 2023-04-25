@@ -15,6 +15,8 @@ mod ast;
 
 #[test]
 fn basic_execution_test() {
+    use crate::ast::Expr::*;
+    use crate::ast::Opcode;
     assert!(formula_disp::FormulaParser::new()
         .parse(" eps = 22")
         .is_ok());
@@ -25,6 +27,14 @@ fn basic_execution_test() {
     let expr = formula_disp::FormulaParser::new()
         .parse("n = 22 * 44 + 66")
         .unwrap();
+    assert_eq!(
+        Index(Box::new(Op(
+            Box::new(Op(Box::new(Number(22)), Opcode::Mul, Box::new(Number(44)))),
+            Opcode::Add,
+            Box::new(Number(66)),
+        ))),
+        *expr
+    );
     assert_eq!(&format!("{:?}", expr), "n = ((22 * 44) + 66)");
     let expr = formula_disp::FormulaParser::new()
         .parse("eps = 3 * 22 ** 4")
