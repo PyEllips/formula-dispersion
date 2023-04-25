@@ -1,0 +1,86 @@
+use std::str::FromStr;
+use crate::ast::{Expr, Opcode, Func, Constant};
+
+grammar();
+
+pub Formula: Box<Expr<'input>> = {
+    "eps" "=" <KKRExpression> => Box::new(Expr::Dielectric(<>)),
+    "n" "=" <KKRExpression> => Box::new(Expr::Index(<>)),
+};
+
+KKRExpression: Box<Expr<'input>> = {
+    "<kkr>" "+" "1j" "*" <Expr<Term>> => Box::new(Expr::KramersKronig(<>)),
+    Expr<Term>,
+};
+
+Tier<Op,NextTier>: Box<Expr<'input>> = {
+    Tier<Op,NextTier> Op NextTier => Box::new(Expr::Op(<>)),
+    NextTier,
+};
+
+Expr<TermType> = Tier<ExprOp, Factor<TermType>>;
+Factor<TermType> = Tier<FactorOp, Power<TermType>>;
+Power<TermType> = Tier<PowerOp, TermType>;
+
+
+ExprOp: Opcode = {
+    "+" => Opcode::Add,
+    "-" => Opcode::Sub,
+};
+
+FactorOp: Opcode = {
+    "*" => Opcode::Mul,
+    "/" => Opcode::Div,
+};
+
+PowerOp: Opcode = {
+    "**" => Opcode::Pow,
+};
+
+SumTerm: Box<Expr<'input>> = {
+    ConstantsAndNumbers,
+    Var => Box::new(Expr::RepeatedVar(<>)),
+    <Func> "(" <Expr<SumTerm>> ")" => Box::new(Expr::Func(<>)),
+    "(" <Expr<SumTerm>> ")",
+};
+
+Term: Box<Expr<'input>> = {
+    ConstantsAndNumbers,
+    Var => Box::new(Expr::Var(<>)),
+    <Func> "(" <Expr<Term>> ")" => Box::new(Expr::Func(<>)),
+    "(" <Expr<Term>> ")",
+    "sum" "[" <Expr<SumTerm>> "]" => Box::new(Expr::Sum(<>)),
+}
+
+ConstantsAndNumbers: Box<Expr<'input>> = {
+    Num => Box::new(Expr::Number(<>)),
+    Constant => Box::new(Expr::Constant(<>)),
+}
+
+Func: Func = {
+    "sin" => Func::Sin,
+    "cos" => Func::Cos,
+    "tan" => Func::Tan,
+    "sqrt" => Func::Sqrt,
+    "dawsn" => Func::Dawsn,
+    "ln" => Func::Ln,
+    "log" => Func::Log,
+    "heaviside" => Func::Heaviside,
+};
+
+Constant: Constant = {
+    "1j" => Constant::I,
+    "pi" => Constant::Pi,
+    "eps_0" => Constant::Eps0,
+    "hbar" => Constant::PlanckConstBar,
+    "h" => Constant::PlanckConst,
+    "c" => Constant::SpeedOfLight,
+};
+
+Num: i32 = {
+    r"[0-9]+" => i32::from_str(<>).unwrap(),
+};
+
+Var: &'input str = {
+    r"[a-zA-Z][a-zA-Z_0-0]*"
+};
