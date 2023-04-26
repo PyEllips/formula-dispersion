@@ -12,6 +12,18 @@ def test_array_parsing():
     assert_array_almost_equal(parsed, np.array([9.0, 18.0, 27.0]))
 
 
+def test_fail_2d_array():
+    """Fails when passed a 2d array as wavelength axis"""
+    with pytest.raises(TypeError):
+        parse(
+            "eps = 3 * 3 * lbda",
+            "lbda",
+            np.array([[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]]),
+            {},
+            {},
+        )
+
+
 def test_powc():
     """Using power is working properly"""
 

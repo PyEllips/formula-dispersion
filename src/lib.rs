@@ -1,9 +1,12 @@
 use crate::ast::Expr;
+use crate::ast::ExprParams;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::ParseError;
 use num_complex::Complex64;
-use numpy::ndarray::{Array1, ArrayViewD};
-use numpy::{IntoPyArray, PyArray1, PyReadonlyArrayDyn};
+use numpy::ndarray::Array1;
+use numpy::ndarray::ArrayView1;
+use numpy::PyReadonlyArray1;
+use numpy::{IntoPyArray, PyArray1};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -84,15 +87,18 @@ fn parse_ast<'a>(formula: &'a str) -> Result<Box<Expr>, ParseError<usize, Token<
 fn parse<'a>(
     formula: &'a str,
     x_axis_name: &'a str,
-    x_axis_values: ArrayViewD<'a, f64>,
-    single_params: &HashMap<&str, f64>,
-    rep_params: &HashMap<&str, Vec<f64>>,
+    x_axis_values: &'a ArrayView1<'a, f64>,
+    single_params: &'a HashMap<&str, f64>,
+    rep_params: &'a HashMap<&str, Vec<f64>>,
 ) -> Result<Array1<Complex64>, Box<dyn error::Error + 'a>> {
-    let size = x_axis_values.len();
-    let x_axis_1d = x_axis_values.into_shape([size])?;
-
     let ast = parse_ast(formula)?;
-    ast.evaluate(&x_axis_name, &x_axis_1d, single_params, rep_params)
+    ast.evaluate(&ExprParams {
+        x_axis_name: &x_axis_name,
+        x_axis_values: &x_axis_values,
+        single_params,
+        rep_params,
+        is_in_sum: false,
+    })
 }
 
 #[pymodule]
@@ -103,14 +109,12 @@ fn formula_dispersion(_py: Python, m: &PyModule) -> PyResult<()> {
         py: Python<'py>,
         formula: &str,
         x_axis_name: &str,
-        x_axis_values: PyReadonlyArrayDyn<f64>,
+        x_axis_values: PyReadonlyArray1<f64>,
         single_params: &PyDict,
         rep_params: &PyDict,
     ) -> PyResult<&'py PyArray1<Complex64>> {
-        let x: numpy::ndarray::ArrayBase<
-            numpy::ndarray::ViewRepr<&f64>,
-            numpy::ndarray::Dim<numpy::ndarray::IxDynImpl>,
-        > = x_axis_values.as_array();
+        let x: numpy::ndarray::ArrayBase<numpy::ndarray::ViewRepr<&f64>, numpy::ndarray::Ix1> =
+            x_axis_values.as_array();
 
         let sparams: HashMap<&str, f64> = match single_params.extract() {
             Ok(hmap) => hmap,
@@ -131,10 +135,11 @@ fn formula_dispersion(_py: Python, m: &PyModule) -> PyResult<()> {
             }
         };
 
-        match parse(formula, x_axis_name, x, &sparams, &rparams) {
-            Ok(arr) => return Ok(arr.into_pyarray(py)),
-            Err(err) => return Err(PyErr::new::<PyTypeError, _>(err.to_string())),
-        }
+        let result = match parse(formula, x_axis_name, &x, &sparams, &rparams) {
+            Ok(arr) => Ok(arr.into_pyarray(py)),
+            Err(err) => Err(PyErr::new::<PyTypeError, _>(err.to_string())),
+        };
+        result
     }
 
     Ok(())

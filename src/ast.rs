@@ -45,50 +45,41 @@ impl Display for MissingSingleParameter {
 
 impl error::Error for MissingSingleParameter {}
 
+pub struct ExprParams<'a> {
+    pub x_axis_name: &'a str,
+    pub x_axis_values: &'a ArrayView1<'a, f64>,
+    pub single_params: &'a HashMap<&'a str, f64>,
+    pub rep_params: &'a HashMap<&'a str, Vec<f64>>,
+    pub is_in_sum: bool,
+}
+
 impl Expr<'_> {
     #[allow(unused)]
-    pub fn evaluate(
+    pub fn evaluate<'a>(
         &self,
-        x_axis_name: &str,
-        x_axis_values: &ArrayView1<'_, f64>,
-        single_params: &HashMap<&str, f64>,
-        rep_params: &HashMap<&str, Vec<f64>>,
+        params: &ExprParams<'a>,
     ) -> Result<Array1<Complex64>, Box<dyn error::Error>> {
         use Expr::*;
         return match *self {
-            Number(num) => {
-                Ok(Complex64::new(num, 0.) + Array1::<Complex64>::zeros(x_axis_values.len()))
-            }
-            Op(ref l, op, ref r) => Ok(op.reduce(
-                l.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?,
-                r.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?,
-            )),
-            Constant(c) => Ok(c.get() + Array1::<Complex64>::zeros(x_axis_values.len())),
-            Func(func, ref expr) => Ok(func.apply(expr.evaluate(
-                x_axis_name,
-                x_axis_values,
-                single_params,
-                rep_params,
-            )?)),
-            Var(key) => {
-                match key {
-                    x if x == x_axis_name => {
-                        Ok(Array1::<Complex64>::zeros(x_axis_values.len()) + x_axis_values)
-                    }
-                    _ => match single_params.get(key) {
-                        Some(val) => Ok(Complex64::new(*val, 0.)
-                            + Array1::<Complex64>::zeros(x_axis_values.len())),
-                        None => Err(MissingSingleParameter.into()),
-                    },
+            Number(num) => Ok(
+                Complex64::new(num, 0.) + Array1::<Complex64>::zeros(params.x_axis_values.len())
+            ),
+            Op(ref l, op, ref r) => Ok(op.reduce(l.evaluate(params)?, r.evaluate(params)?)),
+            Constant(c) => Ok(c.get() + Array1::<Complex64>::zeros(params.x_axis_values.len())),
+            Func(func, ref expr) => Ok(func.apply(expr.evaluate(params)?)),
+            Var(key) => match key {
+                x if x == params.x_axis_name => {
+                    Ok(Array1::<Complex64>::zeros(params.x_axis_values.len())
+                        + params.x_axis_values)
                 }
-            }
-            Dielectric(ref expr) => {
-                Ok(expr.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?)
-            }
-            Index(ref expr) => Ok(expr
-                .evaluate(x_axis_name, x_axis_values, single_params, rep_params)?
-                .map(|x| x.powi(2))),
-
+                _ => match params.single_params.get(key) {
+                    Some(val) => Ok(Complex64::new(*val, 0.)
+                        + Array1::<Complex64>::zeros(params.x_axis_values.len())),
+                    None => Err(MissingSingleParameter.into()),
+                },
+            },
+            Dielectric(ref expr) => Ok(expr.evaluate(params)?),
+            Index(ref expr) => Ok(expr.evaluate(params)?.map(|x| x.powi(2))),
             // Missing:
             // KramersKronig(Box<Expr<'input>>),
             // Sum(Box<Expr<'input>>),
