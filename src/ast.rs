@@ -54,32 +54,37 @@ pub struct ExprParams<'a> {
 }
 
 impl Expr<'_> {
-    #[allow(unused)]
     pub fn evaluate<'a>(
         &self,
         params: &ExprParams<'a>,
     ) -> Result<Array1<Complex64>, Box<dyn error::Error>> {
         use Expr::*;
         return match *self {
-            Number(num) => Ok(
-                Complex64::new(num, 0.) + Array1::<Complex64>::zeros(params.x_axis_values.len())
-            ),
+            Number(num) => Ok(Array1::from_elem(
+                params.x_axis_values.len(),
+                Complex64::new(num, 0.),
+            )),
             Op(ref l, op, ref r) => Ok(op.reduce(l.evaluate(params)?, r.evaluate(params)?)),
-            Constant(c) => Ok(c.get() + Array1::<Complex64>::zeros(params.x_axis_values.len())),
+            Constant(c) => Ok(Array1::from_elem(params.x_axis_values.len(), c.get())),
             Func(func, ref expr) => Ok(func.apply(expr.evaluate(params)?)),
             Var(key) => match key {
                 x if x == params.x_axis_name => {
-                    Ok(Array1::<Complex64>::zeros(params.x_axis_values.len())
-                        + params.x_axis_values)
+                    Ok(params.x_axis_values.mapv(|elem| Complex64::from(elem)))
                 }
                 _ => match params.single_params.get(key) {
-                    Some(val) => Ok(Complex64::new(*val, 0.)
-                        + Array1::<Complex64>::zeros(params.x_axis_values.len())),
+                    Some(val) => Ok(Array1::from_elem(
+                        params.x_axis_values.len(),
+                        Complex64::new(*val, 0.),
+                    )),
                     None => Err(MissingSingleParameter.into()),
                 },
             },
-            Dielectric(ref expr) => Ok(expr.evaluate(params)?),
+            Dielectric(ref expr) => expr.evaluate(params),
             Index(ref expr) => Ok(expr.evaluate(params)?.map(|x| x.powi(2))),
+            // Sum =>
+            // Build [{key, key2, key3}, {key, key2, key3}] structure
+            // HashMap<str, Vec<f64>> -> Vec<HashMap<String, f64>>
+            // Iterate over the array
             // Missing:
             // KramersKronig(Box<Expr<'input>>),
             // Sum(Box<Expr<'input>>),

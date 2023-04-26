@@ -50,12 +50,12 @@ Term: Box<Expr<'input>> = {
     <Func> "(" <Expr<Term>> ")" => Box::new(Expr::Func(<>)),
     "(" <Expr<Term>> ")",
     "sum" "[" <Expr<SumTerm>> "]" => Box::new(Expr::Sum(<>)),
-}
+};
 
 ConstantsAndNumbers: Box<Expr<'input>> = {
     Num => Box::new(Expr::Number(<>)),
     Constant => Box::new(Expr::Constant(<>)),
-}
+};
 
 Func: Func = {
     "sin" => Func::Sin,
