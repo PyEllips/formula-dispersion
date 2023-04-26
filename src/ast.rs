@@ -1,8 +1,12 @@
+use num_complex::Complex64;
+use numpy::ndarray::{Array1, ArrayView1, Zip};
+use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
+use std::str::FromStr;
 
 #[derive(PartialEq)]
 pub enum Expr<'input> {
-    Number(i32),
+    Number(f64),
     Op(Box<Expr<'input>>, Opcode, Box<Expr<'input>>),
     Index(Box<Expr<'input>>),
     Dielectric(Box<Expr<'input>>),
@@ -14,6 +18,29 @@ pub enum Expr<'input> {
     RepeatedVar(&'input str),
 }
 
+impl Expr<'_> {
+    #[allow(unused)]
+    pub fn evaluate(
+        &self,
+        x_axis_name: &str,
+        x_axis_values: &ArrayView1<'_, f64>,
+        single_params: &HashMap<String, f64>,
+        rep_params: &HashMap<String, Array1<f64>>,
+    ) -> Array1<Complex64> {
+        use Expr::*;
+        return match *self {
+            Number(num) => {
+                Complex64::new(num, 0.) + Array1::<Complex64>::zeros(x_axis_values.len())
+            }
+            Op(ref l, op, ref r) => op.apply(
+                l.evaluate(x_axis_name, x_axis_values, single_params, rep_params),
+                r.evaluate(x_axis_name, x_axis_values, single_params, rep_params),
+            ),
+            _ => Array1::<Complex64>::zeros(x_axis_values.len()),
+        };
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum Opcode {
     Mul,
@@ -21,6 +48,21 @@ pub enum Opcode {
     Add,
     Sub,
     Pow,
+}
+
+impl Opcode {
+    pub fn apply(&self, left: Array1<Complex64>, right: Array1<Complex64>) -> Array1<Complex64> {
+        use Opcode::*;
+        match *self {
+            Mul => left * right,
+            Div => left / right,
+            Add => left + right,
+            Sub => left - right,
+            Pow => Zip::from(&left)
+                .and(&right)
+                .map_collect(|base, &exp| (*base).powc(exp)),
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -43,6 +85,25 @@ pub enum Constant {
     PlanckConstBar,
     PlanckConst,
     SpeedOfLight,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseConstantError;
+
+impl FromStr for Constant {
+    type Err = ParseConstantError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "1j" => Ok(Self::I),
+            "pi" => Ok(Self::Pi),
+            "eps_0" => Ok(Self::Eps0),
+            "hbar" => Ok(Self::PlanckConstBar),
+            "h" => Ok(Self::PlanckConst),
+            "c" => Ok(Self::SpeedOfLight),
+            _ => Err(ParseConstantError),
+        }
+    }
 }
 
 impl<'input> Debug for Expr<'input> {

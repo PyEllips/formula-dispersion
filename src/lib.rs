@@ -5,6 +5,7 @@ use numpy::{IntoPyArray, PyArray1, PyReadonlyArrayDyn};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
+use std::collections::HashMap;
 use std::error;
 
 #[macro_use]
@@ -87,8 +88,7 @@ fn parse<'a>(
     let x_axis_1d = x_axis_values.into_shape([size])?;
 
     let ast = formula_disp::FormulaParser::new().parse(&formula)?;
-
-    Ok(evaluate(&ast, &x_axis_name, &x_axis_1d))
+    Ok(ast.evaluate(&x_axis_name, &x_axis_1d, &HashMap::new(), &HashMap::new()))
 }
 
 #[pymodule]
