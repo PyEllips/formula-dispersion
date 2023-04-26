@@ -30,21 +30,25 @@ fn basic_execution_test() {
         .unwrap();
     assert_eq!(
         Index(Box::new(Op(
-            Box::new(Op(Box::new(Number(22)), Opcode::Mul, Box::new(Number(44)))),
+            Box::new(Op(
+                Box::new(Number(22.)),
+                Opcode::Mul,
+                Box::new(Number(44.))
+            )),
             Opcode::Add,
-            Box::new(Number(66)),
+            Box::new(Number(66.)),
         ))),
         *expr
     );
-    assert_eq!(&format!("{:?}", expr), "n = ((22 * 44) + 66)");
+    assert_eq!(&format!("{:?}", expr), "n = ((22.0 * 44.0) + 66.0)");
     let expr = formula_disp::FormulaParser::new()
         .parse("eps = 3 * 22 ** 4")
         .unwrap();
-    assert_eq!(&format!("{:?}", expr), "eps = (3 * (22 ** 4))");
+    assert_eq!(&format!("{:?}", expr), "eps = (3.0 * (22.0 ** 4.0))");
     let expr = formula_disp::FormulaParser::new()
         .parse("eps = 3 * lbda ** 4")
         .unwrap();
-    assert_eq!(&format!("{:?}", expr), "eps = (3 * (lbda ** 4))");
+    assert_eq!(&format!("{:?}", expr), "eps = (3.0 * (lbda ** 4.0))");
     let expr = formula_disp::FormulaParser::new()
         .parse("eps = sum[param]")
         .unwrap();
