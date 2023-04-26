@@ -4,6 +4,7 @@ use numpy::ndarray::{Array1, ArrayView1, ArrayViewD};
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArrayDyn};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 use std::collections::HashMap;
 use std::error;
@@ -87,12 +88,14 @@ fn parse<'a>(
     formula: &'a str,
     x_axis_name: &'a str,
     x_axis_values: ArrayViewD<'a, f64>,
+    single_params: &HashMap<&str, f64>,
+    rep_params: &HashMap<&str, Vec<f64>>,
 ) -> Result<Array1<Complex64>, Box<dyn error::Error + 'a>> {
     let size = x_axis_values.len();
     let x_axis_1d = x_axis_values.into_shape([size])?;
 
     let ast = formula_disp::FormulaParser::new().parse(&formula)?;
-    Ok(ast.evaluate(&x_axis_name, &x_axis_1d, &HashMap::new(), &HashMap::new()))
+    Ok(ast.evaluate(&x_axis_name, &x_axis_1d, single_params, rep_params))
 }
 
 #[pymodule]
@@ -104,15 +107,34 @@ fn formula_dispersion(_py: Python, m: &PyModule) -> PyResult<()> {
         formula: &str,
         x_axis_name: &str,
         x_axis_values: PyReadonlyArrayDyn<f64>,
-        // single_params: &PyDict,
-        // rep_params: &PyDict
+        single_params: &PyDict,
+        rep_params: &PyDict,
     ) -> PyResult<&'py PyArray1<Complex64>> {
         let x: numpy::ndarray::ArrayBase<
             numpy::ndarray::ViewRepr<&f64>,
             numpy::ndarray::Dim<numpy::ndarray::IxDynImpl>,
         > = x_axis_values.as_array();
 
-        match parse(formula, x_axis_name, x) {
+        let sparams: HashMap<&str, f64> = match single_params.extract() {
+            Ok(hmap) => hmap,
+            Err(err) => {
+                return Err(PyErr::new::<PyTypeError, _>(format!(
+                    "Error while parsing single parameters: {}",
+                    err.to_string()
+                )))
+            }
+        };
+        let rparams: HashMap<&str, Vec<f64>> = match rep_params.extract() {
+            Ok(hmap) => hmap,
+            Err(err) => {
+                return Err(PyErr::new::<PyTypeError, _>(format!(
+                    "Error while parsing repeated parameters: {}",
+                    err.to_string()
+                )))
+            }
+        };
+
+        match parse(formula, x_axis_name, x, &sparams, &rparams) {
             Ok(arr) => return Ok(arr.into_pyarray(py)),
             Err(err) => return Err(PyErr::new::<PyTypeError, _>(err.to_string())),
         }

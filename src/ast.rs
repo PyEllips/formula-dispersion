@@ -24,8 +24,8 @@ impl Expr<'_> {
         &self,
         x_axis_name: &str,
         x_axis_values: &ArrayView1<'_, f64>,
-        single_params: &HashMap<String, f64>,
-        rep_params: &HashMap<String, Array1<f64>>,
+        single_params: &HashMap<&str, f64>,
+        rep_params: &HashMap<&str, Vec<f64>>,
     ) -> Array1<Complex64> {
         use Expr::*;
         return match *self {
