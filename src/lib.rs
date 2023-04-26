@@ -1,6 +1,8 @@
 use crate::ast::Expr;
+use lalrpop_util::lexer::Token;
+use lalrpop_util::ParseError;
 use num_complex::Complex64;
-use numpy::ndarray::{Array1, ArrayView1, ArrayViewD};
+use numpy::ndarray::{Array1, ArrayViewD};
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArrayDyn};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -75,13 +77,8 @@ fn basic_execution_test() {
     assert!(formula_disp::FormulaParser::new().parse("(22)").is_err());
 }
 
-#[allow(unused)]
-fn evaluate(
-    ast: &Expr,
-    x_axis_name: &str,
-    x_axis_values: &ArrayView1<'_, f64>,
-) -> Array1<Complex64> {
-    return Array1::<Complex64>::zeros(x_axis_values.len());
+fn parse_ast<'a>(formula: &'a str) -> Result<Box<Expr>, ParseError<usize, Token<'a>, &'a str>> {
+    formula_disp::FormulaParser::new().parse(formula)
 }
 
 fn parse<'a>(
@@ -94,8 +91,8 @@ fn parse<'a>(
     let size = x_axis_values.len();
     let x_axis_1d = x_axis_values.into_shape([size])?;
 
-    let ast = formula_disp::FormulaParser::new().parse(&formula)?;
-    Ok(ast.evaluate(&x_axis_name, &x_axis_1d, single_params, rep_params))
+    let ast = parse_ast(formula)?;
+    ast.evaluate(&x_axis_name, &x_axis_1d, single_params, rep_params)
 }
 
 #[pymodule]

@@ -1,10 +1,15 @@
+use errorfunctions::ComplexErrorFunctions;
 use num_complex::Complex64;
 use numpy::ndarray::{Array1, ArrayView1, Zip};
+use physical_constants;
 use std::collections::HashMap;
-use std::fmt::{Debug, Error, Formatter};
+use std::error;
+use std::f64::consts::PI;
+use std::fmt;
+use std::fmt::{Debug, Display, Error, Formatter};
 use std::str::FromStr;
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Expr<'input> {
     Number(f64),
     Op(Box<Expr<'input>>, Opcode, Box<Expr<'input>>),
@@ -18,6 +23,28 @@ pub enum Expr<'input> {
     RepeatedVar(&'input str),
 }
 
+#[derive(Debug, Clone)]
+pub struct NotImplementedError;
+
+impl Display for NotImplementedError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?} not implemented", self)
+    }
+}
+
+impl error::Error for NotImplementedError {}
+
+#[derive(Debug, Clone)]
+pub struct MissingSingleParameter;
+
+impl Display for MissingSingleParameter {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "A single parameter is missing")
+    }
+}
+
+impl error::Error for MissingSingleParameter {}
+
 impl Expr<'_> {
     #[allow(unused)]
     pub fn evaluate(
@@ -26,17 +53,47 @@ impl Expr<'_> {
         x_axis_values: &ArrayView1<'_, f64>,
         single_params: &HashMap<&str, f64>,
         rep_params: &HashMap<&str, Vec<f64>>,
-    ) -> Array1<Complex64> {
+    ) -> Result<Array1<Complex64>, Box<dyn error::Error>> {
         use Expr::*;
         return match *self {
             Number(num) => {
-                Complex64::new(num, 0.) + Array1::<Complex64>::zeros(x_axis_values.len())
+                Ok(Complex64::new(num, 0.) + Array1::<Complex64>::zeros(x_axis_values.len()))
             }
-            Op(ref l, op, ref r) => op.apply(
-                l.evaluate(x_axis_name, x_axis_values, single_params, rep_params),
-                r.evaluate(x_axis_name, x_axis_values, single_params, rep_params),
-            ),
-            _ => Array1::<Complex64>::zeros(x_axis_values.len()),
+            Op(ref l, op, ref r) => Ok(op.reduce(
+                l.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?,
+                r.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?,
+            )),
+            Constant(c) => Ok(c.get() + Array1::<Complex64>::zeros(x_axis_values.len())),
+            Func(func, ref expr) => Ok(func.apply(expr.evaluate(
+                x_axis_name,
+                x_axis_values,
+                single_params,
+                rep_params,
+            )?)),
+            Var(key) => {
+                match key {
+                    x if x == x_axis_name => {
+                        Ok(Array1::<Complex64>::zeros(x_axis_values.len()) + x_axis_values)
+                    }
+                    _ => match single_params.get(key) {
+                        Some(val) => Ok(Complex64::new(*val, 0.)
+                            + Array1::<Complex64>::zeros(x_axis_values.len())),
+                        None => Err(MissingSingleParameter.into()),
+                    },
+                }
+            }
+            Dielectric(ref expr) => {
+                Ok(expr.evaluate(x_axis_name, x_axis_values, single_params, rep_params)?)
+            }
+            Index(ref expr) => Ok(expr
+                .evaluate(x_axis_name, x_axis_values, single_params, rep_params)?
+                .map(|x| x.powi(2))),
+
+            // Missing:
+            // KramersKronig(Box<Expr<'input>>),
+            // Sum(Box<Expr<'input>>),
+            // RepeatedVar(&'input str),
+            _ => Err(NotImplementedError.into()),
         };
     }
 }
@@ -51,7 +108,7 @@ pub enum Opcode {
 }
 
 impl Opcode {
-    pub fn apply(&self, left: Array1<Complex64>, right: Array1<Complex64>) -> Array1<Complex64> {
+    pub fn reduce(&self, left: Array1<Complex64>, right: Array1<Complex64>) -> Array1<Complex64> {
         use Opcode::*;
         match *self {
             Mul => left * right,
@@ -77,6 +134,38 @@ pub enum Func {
     Heaviside,
 }
 
+trait Heaviside {
+    fn heaviside(&self, zero_val: f64) -> Complex64;
+}
+
+impl Heaviside for Complex64 {
+    fn heaviside(&self, zero_val: f64) -> Complex64 {
+        if self.re > 0. {
+            Complex64::new(1., 0.)
+        } else if self.re == 0. {
+            Complex64::new(zero_val, 0.)
+        } else {
+            Complex64::new(0., 0.)
+        }
+    }
+}
+
+impl Func {
+    pub fn apply(&self, expr: Array1<Complex64>) -> Array1<Complex64> {
+        use Func::*;
+        match *self {
+            Sin => expr.map(|x| x.sin()),
+            Cos => expr.map(|x| x.cos()),
+            Tan => expr.map(|x| x.tan()),
+            Sqrt => expr.map(|x| x.sqrt()),
+            Ln => expr.map(|x| x.ln()),
+            Log => expr.map(|x| x.log(10.)),
+            Dawsn => expr.map(|x| x.dawson()),
+            Heaviside => expr.map(|x| x.heaviside(0.)),
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum Constant {
     I,
@@ -85,6 +174,20 @@ pub enum Constant {
     PlanckConstBar,
     PlanckConst,
     SpeedOfLight,
+}
+
+impl Constant {
+    pub fn get(&self) -> Complex64 {
+        use Constant::*;
+        match *self {
+            I => Complex64::new(0., 1.),
+            Pi => Complex64::new(PI, 0.),
+            Eps0 => Complex64::new(physical_constants::VACUUM_ELECTRIC_PERMITTIVITY, 0.),
+            PlanckConstBar => Complex64::new(physical_constants::PLANCK_CONSTANT / 2. / PI, 0.),
+            PlanckConst => Complex64::new(physical_constants::PLANCK_CONSTANT, 0.),
+            SpeedOfLight => Complex64::new(physical_constants::SPEED_OF_LIGHT_IN_VACUUM, 0.),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
