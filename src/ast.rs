@@ -35,22 +35,36 @@ impl Display for NotImplementedError {
 impl error::Error for NotImplementedError {}
 
 #[derive(Debug, Clone)]
-pub struct MissingSingleParameter;
+pub struct MissingParameter {
+    message: String,
+}
 
-impl Display for MissingSingleParameter {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "A single parameter is missing")
+impl MissingParameter {
+    fn new(parameter_name: &str) -> MissingParameter {
+        MissingParameter {
+            message: format!("The parameter {} is missing", parameter_name).to_string(),
+        }
     }
 }
 
-impl error::Error for MissingSingleParameter {}
+impl Display for MissingParameter {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl error::Error for MissingParameter {
+    fn description(&self) -> &str {
+        &self.message
+    }
+}
 
 pub struct ExprParams<'a> {
     pub x_axis_name: &'a str,
     pub x_axis_values: &'a ArrayView1<'a, f64>,
     pub single_params: &'a HashMap<&'a str, f64>,
     pub rep_params: &'a HashMap<&'a str, Vec<f64>>,
-    pub is_in_sum: bool,
+    pub sum_params: &'a Option<HashMap<&'a str, f64>>,
 }
 
 impl Expr<'_> {
@@ -62,7 +76,7 @@ impl Expr<'_> {
         return match *self {
             Number(num) => Ok(Array1::from_elem(
                 params.x_axis_values.len(),
-                Complex64::new(num, 0.),
+                Complex64::from(num),
             )),
             Op(ref l, op, ref r) => Ok(op.reduce(l.evaluate(params)?, r.evaluate(params)?)),
             Constant(c) => Ok(Array1::from_elem(params.x_axis_values.len(), c.get())),
@@ -76,11 +90,28 @@ impl Expr<'_> {
                         params.x_axis_values.len(),
                         Complex64::new(*val, 0.),
                     )),
-                    None => Err(MissingSingleParameter.into()),
+                    None => Err(MissingParameter::new(key).into()),
                 },
             },
+            // RepeatedVar(key) => match key {
+            //     x_axis if x_axis == params.x_axis_name => {
+            //         Ok(params.x_axis_values.mapv(|elem| Complex64::from(elem)))
+            //     }
+            //     single_param if params.single_params.contains_key(single_param) => {
+            //         Ok(Array1::from_elem(
+            //             params.x_axis_values.len(),
+            //             Complex64::from(params.single_params.get(single_param).unwrap()),
+            //         ))
+            //     }
+            // },
             Dielectric(ref expr) => expr.evaluate(params),
             Index(ref expr) => Ok(expr.evaluate(params)?.map(|x| x.powi(2))),
+            // Sum(expr) => {
+            //     for param in params.rep_params.keys() {
+            //         for elem in params.rep_params.get(param).unwrap() {}
+            //     }
+            //     Ok()
+            // }
             // Sum =>
             // Build [{key, key2, key3}, {key, key2, key3}] structure
             // HashMap<str, Vec<f64>> -> Vec<HashMap<String, f64>>
@@ -137,11 +168,11 @@ trait Heaviside {
 impl Heaviside for Complex64 {
     fn heaviside(&self, zero_val: f64) -> Complex64 {
         if self.re > 0. {
-            Complex64::new(1., 0.)
+            Complex64::from(1.)
         } else if self.re == 0. {
-            Complex64::new(zero_val, 0.)
+            Complex64::from(zero_val)
         } else {
-            Complex64::new(0., 0.)
+            Complex64::from(0.)
         }
     }
 }
@@ -177,11 +208,11 @@ impl Constant {
         use Constant::*;
         match *self {
             I => Complex64::new(0., 1.),
-            Pi => Complex64::new(PI, 0.),
-            Eps0 => Complex64::new(physical_constants::VACUUM_ELECTRIC_PERMITTIVITY, 0.),
-            PlanckConstBar => Complex64::new(physical_constants::PLANCK_CONSTANT / 2. / PI, 0.),
-            PlanckConst => Complex64::new(physical_constants::PLANCK_CONSTANT, 0.),
-            SpeedOfLight => Complex64::new(physical_constants::SPEED_OF_LIGHT_IN_VACUUM, 0.),
+            Pi => Complex64::from(PI),
+            Eps0 => Complex64::from(physical_constants::VACUUM_ELECTRIC_PERMITTIVITY),
+            PlanckConstBar => Complex64::from(physical_constants::PLANCK_CONSTANT / 2. / PI),
+            PlanckConst => Complex64::from(physical_constants::PLANCK_CONSTANT),
+            SpeedOfLight => Complex64::from(physical_constants::SPEED_OF_LIGHT_IN_VACUUM),
         }
     }
 }

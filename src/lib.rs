@@ -99,7 +99,7 @@ fn parse<'a>(
         x_axis_values: &x_axis_values,
         single_params,
         rep_params,
-        is_in_sum: false,
+        sum_params: &None,
     })
 }
 
