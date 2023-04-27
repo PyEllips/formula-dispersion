@@ -67,20 +67,22 @@ pub struct ExprParams<'a> {
     pub sum_params: &'a Option<HashMap<&'a str, f64>>,
 }
 
+// type Elem = Box<dyn Mul<Array1<Complex64>, Array1<Complex64>>>;
+
 impl Expr<'_> {
     pub fn evaluate<'a>(
         &self,
         params: &ExprParams<'a>,
     ) -> Result<Array1<Complex64>, Box<dyn error::Error>> {
         use Expr::*;
-        return match *self {
+        match *self {
             Number(num) => Ok(Array1::from_elem(
                 params.x_axis_values.len(),
                 Complex64::from(num),
             )),
             Op(ref l, op, ref r) => Ok(op.reduce(l.evaluate(params)?, r.evaluate(params)?)),
             Constant(c) => Ok(Array1::from_elem(params.x_axis_values.len(), c.get())),
-            Func(func, ref expr) => Ok(func.apply(expr.evaluate(params)?)),
+            Func(func, ref expr) => Ok(func.evaluate(expr.evaluate(params)?)),
             Var(key) => match key {
                 x if x == params.x_axis_name => {
                     Ok(params.x_axis_values.mapv(|elem| Complex64::from(elem)))
@@ -121,7 +123,7 @@ impl Expr<'_> {
             // Sum(Box<Expr<'input>>),
             // RepeatedVar(&'input str),
             _ => Err(NotImplementedError.into()),
-        };
+        }
     }
 }
 
@@ -177,19 +179,64 @@ impl Heaviside for Complex64 {
     }
 }
 
-impl Func {
-    pub fn apply(&self, expr: Array1<Complex64>) -> Array1<Complex64> {
+trait Evaluate<T, G> {
+    fn evaluate(&self, expr: T) -> G;
+}
+
+type ArrTuple = (Array1<Complex64>, Array1<Complex64>);
+type ComplexTuple = (Complex64, Complex64);
+type ArrComplexTuple = (Array1<Complex64>, Complex64);
+type ComplexArrTuple = (Complex64, Array1<Complex64>);
+
+impl Evaluate<ArrTuple, Array1<Complex64>> for Opcode {
+    fn evaluate(&self, expr: ArrTuple) -> Array1<Complex64> {
+        expr.0
+    }
+}
+
+impl Evaluate<ComplexTuple, Complex64> for Opcode {
+    fn evaluate(&self, expr: ComplexTuple) -> Complex64 {
+        expr.0
+    }
+}
+
+impl Evaluate<ArrComplexTuple, Array1<Complex64>> for Opcode {
+    fn evaluate(&self, expr: ArrComplexTuple) -> Array1<Complex64> {
+        expr.0
+    }
+}
+
+impl Evaluate<ComplexArrTuple, Array1<Complex64>> for Opcode {
+    fn evaluate(&self, expr: ComplexArrTuple) -> Array1<Complex64> {
+        expr.1
+    }
+}
+
+impl Evaluate<Array1<Complex64>, Array1<Complex64>> for Func {
+    fn evaluate(&self, expr: Array1<Complex64>) -> Array1<Complex64> {
+        expr.map(|x| self.evaluate(*x))
+    }
+}
+
+impl Evaluate<Complex64, Complex64> for Func {
+    fn evaluate(&self, x: Complex64) -> Complex64 {
         use Func::*;
         match *self {
-            Sin => expr.map(|x| x.sin()),
-            Cos => expr.map(|x| x.cos()),
-            Tan => expr.map(|x| x.tan()),
-            Sqrt => expr.map(|x| x.sqrt()),
-            Ln => expr.map(|x| x.ln()),
-            Log => expr.map(|x| x.log(10.)),
-            Dawsn => expr.map(|x| x.dawson()),
-            Heaviside => expr.map(|x| x.heaviside(0.)),
+            Sin => x.sin(),
+            Cos => x.cos(),
+            Tan => x.tan(),
+            Sqrt => x.sqrt(),
+            Ln => x.ln(),
+            Log => x.log(10.),
+            Dawsn => x.dawson(),
+            Heaviside => x.heaviside(0.),
         }
+    }
+}
+
+impl Evaluate<Option<Complex64>, Complex64> for Constant {
+    fn evaluate(&self, _: Option<Complex64>) -> Complex64 {
+        self.get()
     }
 }
 
