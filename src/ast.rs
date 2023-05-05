@@ -190,25 +190,67 @@ type ComplexArrTuple = (Complex64, Array1<Complex64>);
 
 impl Evaluate<ArrTuple, Array1<Complex64>> for Opcode {
     fn evaluate(&self, expr: ArrTuple) -> Array1<Complex64> {
-        expr.0
+        use Opcode::*;
+        let left = expr.0;
+        let right = expr.1;
+
+        match *self {
+            Mul => left * right,
+            Div => left / right,
+            Add => left + right,
+            Sub => left - right,
+            Pow => Zip::from(&left)
+                .and(&right)
+                .map_collect(|base, &exp| (*base).powc(exp)),
+        }
     }
 }
 
 impl Evaluate<ComplexTuple, Complex64> for Opcode {
     fn evaluate(&self, expr: ComplexTuple) -> Complex64 {
-        expr.0
+        use Opcode::*;
+        let left = expr.0;
+        let right = expr.1;
+
+        match *self {
+            Mul => left * right,
+            Div => left / right,
+            Add => left + right,
+            Sub => left - right,
+            Pow => left.powc(right),
+        }
     }
 }
 
 impl Evaluate<ArrComplexTuple, Array1<Complex64>> for Opcode {
     fn evaluate(&self, expr: ArrComplexTuple) -> Array1<Complex64> {
-        expr.0
+        use Opcode::*;
+        let left = expr.0;
+        let right = expr.1;
+
+        match *self {
+            Mul => left * right,
+            Div => left / right,
+            Add => left + right,
+            Sub => left - right,
+            Pow => left.map(|x| x.powc(right)),
+        }
     }
 }
 
 impl Evaluate<ComplexArrTuple, Array1<Complex64>> for Opcode {
     fn evaluate(&self, expr: ComplexArrTuple) -> Array1<Complex64> {
-        expr.1
+        use Opcode::*;
+        let left = expr.0;
+        let right = expr.1;
+
+        match *self {
+            Mul => left * right,
+            Div => left / right,
+            Add => left + right,
+            Sub => left - right,
+            Pow => right.map(|x| left.powc(*x)),
+        }
     }
 }
 
