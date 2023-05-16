@@ -207,8 +207,6 @@ impl Sub for EvaluateResult {
     }
 }
 
-// type Elem = Box<dyn Mul<Array1<Complex64>, Array1<Complex64>>>;
-
 impl Expr<'_> {
     pub fn evaluate<'a>(
         &self,
