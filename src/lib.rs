@@ -95,12 +95,12 @@ fn parse<'a>(
     rep_params: &'a HashMap<&str, Vec<f64>>,
 ) -> Result<Array1<Complex64>, Box<dyn error::Error + 'a>> {
     let ast = parse_ast(formula)?;
-    match ast.evaluate(&ExprParams {
+    match ast.evaluate(&mut ExprParams {
         x_axis_name: &x_axis_name,
         x_axis_values: &x_axis_values,
         single_params,
         rep_params,
-        sum_params: &None,
+        sum_params: None,
     })? {
         EvaluateResult::Number(num) => Ok(Array1::from_elem(
             x_axis_values.len(),

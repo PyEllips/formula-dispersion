@@ -31,6 +31,27 @@ def test_powc():
     assert_array_almost_equal(parsed, np.array([1.0**2, 8.0**2, 27.0**2]))
 
 
+def test_sum():
+    """The sum part works properly"""
+
+    parsed = parse(
+        "eps = 3 * sum[lbda * test]",
+        "lbda",
+        np.array([1.0, 2.0, 3.0]),
+        {},
+        {"test": [1.0, 2.0, 3.0]},
+    )
+    assert_array_almost_equal(
+        parsed,
+        3
+        * (
+            np.array([1.0, 2.0, 3.0])
+            + 2 * np.array([1.0, 2.0, 3.0])
+            + 3 * np.array([1.0, 2.0, 3.0])
+        ),
+    )
+
+
 def test_fails_on_wrong_token():
     """Array parsing fails on wrong token"""
 
