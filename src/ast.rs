@@ -7,6 +7,7 @@ use std::error;
 use std::f64::consts::PI;
 use std::fmt;
 use std::fmt::{Debug, Display, Error, Formatter};
+use std::ops::{Add, Div, Mul, Sub};
 use std::str::FromStr;
 
 #[derive(Clone, PartialEq)]
@@ -64,64 +65,210 @@ pub struct ExprParams<'a> {
     pub x_axis_values: &'a ArrayView1<'a, f64>,
     pub single_params: &'a HashMap<&'a str, f64>,
     pub rep_params: &'a HashMap<&'a str, Vec<f64>>,
-    pub sum_params: &'a Option<HashMap<&'a str, f64>>,
+    pub sum_params: Option<HashMap<&'a str, f64>>,
+}
+
+pub enum EvaluateResult {
+    Array(Array1<Complex64>),
+    Number(Complex64),
+}
+
+impl EvaluateResult {
+    fn power(self, other: EvaluateResult) -> EvaluateResult {
+        use EvaluateResult::*;
+        match (self, other) {
+            (Number(b), Number(exp)) => EvaluateResult::Number(b.powc(exp)),
+            (Number(b), Array(exp)) => EvaluateResult::Array(exp.map(|x| b.powc(*x))),
+            (Array(b), Number(exp)) => EvaluateResult::Array(b.map(|x| x.powc(exp))),
+            (Array(b), Array(exp)) => EvaluateResult::Array(
+                Zip::from(&b)
+                    .and(&exp)
+                    .map_collect(|base, &exp| (*base).powc(exp)),
+            ),
+        }
+    }
+
+    fn sin(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.sin()),
+            Array(arr) => Array(arr.map(|x| x.sin())),
+        }
+    }
+
+    fn cos(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.cos()),
+            Array(arr) => Array(arr.map(|x| x.cos())),
+        }
+    }
+
+    fn tan(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.tan()),
+            Array(arr) => Array(arr.map(|x| x.tan())),
+        }
+    }
+
+    fn sqrt(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.sqrt()),
+            Array(arr) => Array(arr.map(|x| x.sqrt())),
+        }
+    }
+
+    fn ln(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.ln()),
+            Array(arr) => Array(arr.map(|x| x.ln())),
+        }
+    }
+
+    fn log(self, base: f64) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.log(base)),
+            Array(arr) => Array(arr.map(|x| x.log(base))),
+        }
+    }
+
+    fn dawson(self) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.dawson()),
+            Array(arr) => Array(arr.map(|x| x.dawson())),
+        }
+    }
+
+    fn heaviside(self, zero_val: f64) -> EvaluateResult {
+        use EvaluateResult::*;
+        match self {
+            Number(num) => Number(num.heaviside(zero_val)),
+            Array(arr) => Array(arr.map(|x| x.heaviside(zero_val))),
+        }
+    }
+}
+
+impl Mul for EvaluateResult {
+    type Output = EvaluateResult;
+
+    fn mul(self, other: EvaluateResult) -> EvaluateResult {
+        use EvaluateResult::*;
+        match (self, other) {
+            (Number(x), Number(y)) => EvaluateResult::Number(x * y),
+            (Number(x), Array(y)) => EvaluateResult::Array(x * y),
+            (Array(x), Number(y)) => EvaluateResult::Array(x * y),
+            (Array(x), Array(y)) => EvaluateResult::Array(x * y),
+        }
+    }
+}
+
+impl Div for EvaluateResult {
+    type Output = EvaluateResult;
+
+    fn div(self, other: EvaluateResult) -> EvaluateResult {
+        use EvaluateResult::*;
+        match (self, other) {
+            (Number(x), Number(y)) => EvaluateResult::Number(x / y),
+            (Number(x), Array(y)) => EvaluateResult::Array(x / y),
+            (Array(x), Number(y)) => EvaluateResult::Array(x / y),
+            (Array(x), Array(y)) => EvaluateResult::Array(x / y),
+        }
+    }
+}
+
+impl Add for EvaluateResult {
+    type Output = EvaluateResult;
+
+    fn add(self, other: EvaluateResult) -> EvaluateResult {
+        use EvaluateResult::*;
+        match (self, other) {
+            (Number(x), Number(y)) => EvaluateResult::Number(x + y),
+            (Number(x), Array(y)) => EvaluateResult::Array(x + y),
+            (Array(x), Number(y)) => EvaluateResult::Array(x + y),
+            (Array(x), Array(y)) => EvaluateResult::Array(x + y),
+        }
+    }
+}
+
+impl Sub for EvaluateResult {
+    type Output = EvaluateResult;
+
+    fn sub(self, other: EvaluateResult) -> EvaluateResult {
+        use EvaluateResult::*;
+        match (self, other) {
+            (Number(x), Number(y)) => EvaluateResult::Number(x - y),
+            (Number(x), Array(y)) => EvaluateResult::Array(x - y),
+            (Array(x), Number(y)) => EvaluateResult::Array(x - y),
+            (Array(x), Array(y)) => EvaluateResult::Array(x - y),
+        }
+    }
 }
 
 impl Expr<'_> {
     pub fn evaluate<'a>(
         &self,
-        params: &ExprParams<'a>,
-    ) -> Result<Array1<Complex64>, Box<dyn error::Error>> {
+        params: &mut ExprParams<'a>,
+    ) -> Result<EvaluateResult, Box<dyn error::Error>> {
         use Expr::*;
-        return match *self {
-            Number(num) => Ok(Array1::from_elem(
-                params.x_axis_values.len(),
-                Complex64::from(num),
-            )),
+        match *self {
+            Number(num) => Ok(EvaluateResult::Number(Complex64::from(num))),
             Op(ref l, op, ref r) => Ok(op.reduce(l.evaluate(params)?, r.evaluate(params)?)),
-            Constant(c) => Ok(Array1::from_elem(params.x_axis_values.len(), c.get())),
-            Func(func, ref expr) => Ok(func.apply(expr.evaluate(params)?)),
+            Constant(c) => Ok(EvaluateResult::Number(c.get())),
+            Func(func, ref expr) => Ok(func.evaluate(expr.evaluate(params)?)),
             Var(key) => match key {
-                x if x == params.x_axis_name => {
-                    Ok(params.x_axis_values.mapv(|elem| Complex64::from(elem)))
-                }
+                x if x == params.x_axis_name => Ok(EvaluateResult::Array(
+                    params.x_axis_values.mapv(|elem| Complex64::from(elem)),
+                )),
                 _ => match params.single_params.get(key) {
-                    Some(val) => Ok(Array1::from_elem(
-                        params.x_axis_values.len(),
-                        Complex64::new(*val, 0.),
-                    )),
+                    Some(val) => Ok(EvaluateResult::Number(Complex64::new(*val, 0.))),
                     None => Err(MissingParameter::new(key).into()),
                 },
             },
-            // RepeatedVar(key) => match key {
-            //     x_axis if x_axis == params.x_axis_name => {
-            //         Ok(params.x_axis_values.mapv(|elem| Complex64::from(elem)))
-            //     }
-            //     single_param if params.single_params.contains_key(single_param) => {
-            //         Ok(Array1::from_elem(
-            //             params.x_axis_values.len(),
-            //             Complex64::from(params.single_params.get(single_param).unwrap()),
-            //         ))
-            //     }
-            // },
+            RepeatedVar(key) => match key {
+                x if x == params.x_axis_name => Ok(EvaluateResult::Array(
+                    params.x_axis_values.mapv(|elem| Complex64::from(elem)),
+                )),
+                x if params.single_params.contains_key(x) => Ok(EvaluateResult::Number(
+                    Complex64::from(params.single_params.get(key).unwrap()),
+                )),
+                x if params.sum_params.as_ref().unwrap().contains_key(x) => {
+                    Ok(EvaluateResult::Number(Complex64::from(
+                        params.sum_params.as_ref().unwrap().get(key).unwrap(),
+                    )))
+                }
+                _ => Err(MissingParameter::new(key).into()),
+            },
             Dielectric(ref expr) => expr.evaluate(params),
-            Index(ref expr) => Ok(expr.evaluate(params)?.map(|x| x.powi(2))),
-            // Sum(expr) => {
-            //     for param in params.rep_params.keys() {
-            //         for elem in params.rep_params.get(param).unwrap() {}
-            //     }
-            //     Ok()
-            // }
-            // Sum =>
-            // Build [{key, key2, key3}, {key, key2, key3}] structure
-            // HashMap<str, Vec<f64>> -> Vec<HashMap<String, f64>>
-            // Iterate over the array
+            Index(ref expr) => Ok(expr
+                .evaluate(params)?
+                .power(EvaluateResult::Number(Complex64::from(2.)))),
+            Sum(ref expr) => {
+                let mut params_vec = Vec::new();
+                for (key, val) in params.rep_params.iter() {
+                    for (i, param) in val.iter().enumerate() {
+                        if params_vec.len() <= i {
+                            params_vec.push(HashMap::new())
+                        }
+                        params_vec[i].insert(*key, *param);
+                    }
+                }
+
+                let mut result = EvaluateResult::Number(Complex64::from(0.));
+                for p in params_vec.iter() {
+                    params.sum_params = Some(p.clone());
+                    result = result + expr.evaluate(params)?;
+                }
+                Ok(result)
+            }
             // Missing:
             // KramersKronig(Box<Expr<'input>>),
-            // Sum(Box<Expr<'input>>),
-            // RepeatedVar(&'input str),
             _ => Err(NotImplementedError.into()),
-        };
+        }
     }
 }
 
@@ -135,16 +282,14 @@ pub enum Opcode {
 }
 
 impl Opcode {
-    pub fn reduce(&self, left: Array1<Complex64>, right: Array1<Complex64>) -> Array1<Complex64> {
+    pub fn reduce(&self, left: EvaluateResult, right: EvaluateResult) -> EvaluateResult {
         use Opcode::*;
         match *self {
             Mul => left * right,
             Div => left / right,
             Add => left + right,
             Sub => left - right,
-            Pow => Zip::from(&left)
-                .and(&right)
-                .map_collect(|base, &exp| (*base).powc(exp)),
+            Pow => left.power(right),
         }
     }
 }
@@ -177,19 +322,51 @@ impl Heaviside for Complex64 {
     }
 }
 
-impl Func {
-    pub fn apply(&self, expr: Array1<Complex64>) -> Array1<Complex64> {
+trait Evaluate<T, G> {
+    fn evaluate(&self, expr: T) -> G;
+}
+
+impl Evaluate<Array1<Complex64>, Array1<Complex64>> for Func {
+    fn evaluate(&self, expr: Array1<Complex64>) -> Array1<Complex64> {
+        expr.map(|x| self.evaluate(*x))
+    }
+}
+
+impl Evaluate<EvaluateResult, EvaluateResult> for Func {
+    fn evaluate(&self, expr: EvaluateResult) -> EvaluateResult {
         use Func::*;
         match *self {
-            Sin => expr.map(|x| x.sin()),
-            Cos => expr.map(|x| x.cos()),
-            Tan => expr.map(|x| x.tan()),
-            Sqrt => expr.map(|x| x.sqrt()),
-            Ln => expr.map(|x| x.ln()),
-            Log => expr.map(|x| x.log(10.)),
-            Dawsn => expr.map(|x| x.dawson()),
-            Heaviside => expr.map(|x| x.heaviside(0.)),
+            Sin => expr.sin(),
+            Cos => expr.cos(),
+            Tan => expr.tan(),
+            Sqrt => expr.sqrt(),
+            Ln => expr.ln(),
+            Log => expr.log(10.),
+            Dawsn => expr.dawson(),
+            Heaviside => expr.heaviside(0.),
         }
+    }
+}
+
+impl Evaluate<Complex64, Complex64> for Func {
+    fn evaluate(&self, x: Complex64) -> Complex64 {
+        use Func::*;
+        match *self {
+            Sin => x.sin(),
+            Cos => x.cos(),
+            Tan => x.tan(),
+            Sqrt => x.sqrt(),
+            Ln => x.ln(),
+            Log => x.log(10.),
+            Dawsn => x.dawson(),
+            Heaviside => x.heaviside(0.),
+        }
+    }
+}
+
+impl Evaluate<Complex64, Complex64> for Constant {
+    fn evaluate(&self, _: Complex64) -> Complex64 {
+        self.get()
     }
 }
 
