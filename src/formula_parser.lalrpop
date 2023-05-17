@@ -82,5 +82,5 @@ Num: f64 = {
 };
 
 Var: &'input str = {
-    r"[a-zA-Z][a-zA-Z_0-0]*"
+    r"[a-zA-Z][a-zA-Z_0-9]*"
 };

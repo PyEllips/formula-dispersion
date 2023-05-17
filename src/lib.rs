@@ -102,16 +102,29 @@ fn parse<'a>(
         rep_params,
         sum_params: None,
     })? {
-        EvaluateResult::Number(num) => Ok(Array1::from_elem(
-            x_axis_values.len(),
-            Complex64::from(num),
-        )),
-        EvaluateResult::Array(arr) => Ok(arr)
+        EvaluateResult::Number(num) => {
+            Ok(Array1::from_elem(x_axis_values.len(), Complex64::from(num)))
+        }
+        EvaluateResult::Array(arr) => Ok(arr),
     }
 }
 
 #[pymodule]
 fn formula_dispersion(_py: Python, m: &PyModule) -> PyResult<()> {
+    #[pyfn(m)]
+    #[pyo3(name = "get_representation")]
+    fn get_representation_py<'py>(formula: &str) -> PyResult<&'py str> {
+        let ast = match parse_ast(formula) {
+            Ok(ast) => ast,
+            Err(err) => return Err(PyErr::new::<PyTypeError, _>(err.to_string())),
+        };
+
+        match ast.get_representation() {
+            Ok(repr) => Ok(repr),
+            Err(err) => Err(PyErr::new::<PyTypeError, _>(err.to_string())),
+        }
+    }
+
     #[pyfn(m)]
     #[pyo3(name = "parse")]
     fn parse_py<'py>(

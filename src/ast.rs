@@ -210,6 +210,14 @@ impl Sub for EvaluateResult {
 }
 
 impl Expr<'_> {
+    pub fn get_representation<'a>(self) -> Result<&'a str, Box<dyn error::Error>> {
+        use Expr::*;
+        match self {
+            Dielectric(_) => Ok("eps"),
+            Index(_) => Ok("n"),
+            _ => Err("Not a valid expression".into()),
+        }
+    }
     pub fn evaluate<'a>(
         &self,
         params: &mut ExprParams<'a>,
@@ -244,9 +252,7 @@ impl Expr<'_> {
                 _ => Err(MissingParameter::new(key).into()),
             },
             Dielectric(ref expr) => expr.evaluate(params),
-            Index(ref expr) => Ok(expr
-                .evaluate(params)?
-                .power(EvaluateResult::Number(Complex64::from(2.)))),
+            Index(ref expr) => expr.evaluate(params),
             Sum(ref expr) => {
                 let mut params_vec = Vec::new();
                 for (key, val) in params.rep_params.iter() {
