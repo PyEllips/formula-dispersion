@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_array_almost_equal
 from formula_dispersion import parse
+from elli.dispersions import Sellmeier
 
 
 def test_array_parsing():
@@ -50,6 +51,28 @@ def test_sum():
             + 3 * np.array([1.0, 2.0, 3.0])
         ),
     )
+
+
+def test_sellmeier():
+    """Sellmeier is reproduced"""
+
+    parsed = parse(
+        "eps = 1 + sum[A * (lbda * 1e-3)**2 / ((lbda * 1e-3)  ** 2 - B)]",
+        "lbda",
+        np.linspace(400, 1500, 500),
+        {},
+        {"A": [1, 1, 1], "B": [0.1, 0.1, 0.1]},
+    )
+
+    ref = (
+        Sellmeier()
+        .add(1, 0.1)
+        .add(1, 0.1)
+        .add(1, 0.1)
+        .get_dielectric(np.linspace(400, 1500, 500))
+    )
+
+    assert_array_almost_equal(ref, parsed)
 
 
 def test_fails_on_wrong_token():
