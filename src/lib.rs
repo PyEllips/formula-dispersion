@@ -1,6 +1,7 @@
 use crate::ast::Expr;
 use crate::ast::ExprParams;
 use ast::EvaluateResult;
+use cached::proc_macro::cached;
 use lalrpop_util::lexer::Token;
 use lalrpop_util::ParseError;
 use num_complex::Complex64;
@@ -83,7 +84,10 @@ fn basic_execution_test() {
     assert!(formula_parser::FormulaParser::new().parse("(22)").is_err());
 }
 
-fn parse_ast<'a>(formula: &'a str) -> Result<Box<Expr>, ParseError<usize, Token<'a>, &'a str>> {
+#[cached]
+fn parse_ast(
+    formula: &'static str,
+) -> Result<Box<Expr<'static>>, ParseError<usize, Token<'static>, &'static str>> {
     formula_parser::FormulaParser::new().parse(formula)
 }
 
@@ -94,7 +98,7 @@ fn parse<'a>(
     single_params: &'a HashMap<&str, f64>,
     rep_params: &'a HashMap<&str, Vec<f64>>,
 ) -> Result<Array1<Complex64>, Box<dyn error::Error + 'a>> {
-    let ast = parse_ast(formula)?;
+    let ast = parse_ast(Box::leak(formula.to_string().into_boxed_str()))?;
     match ast.evaluate(&mut ExprParams {
         x_axis_name: &x_axis_name,
         x_axis_values: &x_axis_values,
@@ -114,7 +118,7 @@ fn formula_dispersion(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
     #[pyo3(name = "get_representation")]
     fn get_representation_py<'py>(formula: &str) -> PyResult<&'py str> {
-        let ast = match parse_ast(formula) {
+        let ast = match parse_ast(Box::leak(formula.to_string().into_boxed_str())) {
             Ok(ast) => ast,
             Err(err) => return Err(PyErr::new::<PyTypeError, _>(err.to_string())),
         };
