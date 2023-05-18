@@ -29,7 +29,7 @@ def test_powc():
     """Using power is working properly"""
 
     parsed = parse("n = lbda ** 3", "lbda", np.array([1.0, 2.0, 3.0]), {}, {})
-    assert_array_almost_equal(parsed, np.array([1.0**2, 8.0**2, 27.0**2]))
+    assert_array_almost_equal(parsed, np.array([1.0, 8.0, 27.0]))
 
 
 def test_sum():
@@ -80,3 +80,20 @@ def test_fails_on_wrong_token():
 
     with pytest.raises(TypeError):
         parse("eps = 3 * 3 * lba", "lbda", np.array([1.0, 2.0, 3.0]), {}, {})
+
+
+def test_sellmeier():
+    formula = "n = sqrt(eps_inf + sum[A * lambda ** e1 / (lambda ** 2 - B**e2)])"
+    # formula = "n =  B ** e2"
+    rep_params = {
+        "A": np.array([1.0, 0.00448263]),
+        "B": np.array([0.0, 1.108205]),
+        "e1": np.array([0.0, 0.0]),
+        "e2": np.array([1.0, 2.0]),
+    }
+    single_params = {"eps_inf": 11.67316}
+    lbda = np.linspace(6250, 23255.814, 100)
+
+    assert_array_almost_equal(
+        lbda, parse(formula, "lambda", lbda, single_params, rep_params)
+    )

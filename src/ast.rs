@@ -73,13 +73,26 @@ pub enum EvaluateResult {
     Number(Complex64),
 }
 
+trait ComplexPower {
+    fn pc(self, exp: Complex64) -> Complex64;
+}
+
+impl ComplexPower for Complex64 {
+    fn pc(self, exp: Complex64) -> Complex64 {
+        if self.re == 0. && self.im == 0. {
+            return Complex64::from(0.);
+        }
+        self.powc(exp)
+    }
+}
+
 impl EvaluateResult {
     fn power(self, other: EvaluateResult) -> EvaluateResult {
         use EvaluateResult::*;
         match (self, other) {
-            (Number(b), Number(exp)) => EvaluateResult::Number(b.powc(exp)),
-            (Number(b), Array(exp)) => EvaluateResult::Array(exp.map(|x| b.powc(*x))),
-            (Array(b), Number(exp)) => EvaluateResult::Array(b.map(|x| x.powc(exp))),
+            (Number(b), Number(exp)) => EvaluateResult::Number(b.pc(exp)),
+            (Number(b), Array(exp)) => EvaluateResult::Array(exp.map(|x| b.pc(*x))),
+            (Array(b), Number(exp)) => EvaluateResult::Array(b.map(|x| x.pc(exp))),
             (Array(b), Array(exp)) => EvaluateResult::Array(
                 Zip::from(&b)
                     .and(&exp)
