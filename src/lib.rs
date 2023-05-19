@@ -112,6 +112,45 @@ mod tests {
             )
         });
     }
+
+    #[bench]
+    fn constant_value(b: &mut Bencher) {
+        let arr = Array::linspace(400., 1000., 100000);
+        let arr_view = arr.view();
+        let single_params = HashMap::new();
+        let rep_params = HashMap::new();
+
+        b.iter(|| parse("eps = 1", "lbda", &arr_view, &single_params, &rep_params));
+    }
+
+    #[bench]
+    fn return_axis(b: &mut Bencher) {
+        let arr = Array::linspace(400., 1000., 100000);
+        let arr_view = arr.view();
+        let single_params = HashMap::new();
+        let rep_params = HashMap::new();
+
+        b.iter(|| parse("eps = lbda", "lbda", &arr_view, &single_params, &rep_params));
+    }
+
+    #[bench]
+    fn simple_sum(b: &mut Bencher) {
+        let arr = Array::linspace(400., 1000., 100000);
+        let arr_view = arr.view();
+        let single_params = HashMap::new();
+        let mut rep_params = HashMap::new();
+        rep_params.insert("A", vec![1., 2., 3., 4.]);
+
+        b.iter(|| {
+            parse(
+                "eps = sum[A*lbda]",
+                "lbda",
+                &arr_view,
+                &single_params,
+                &rep_params,
+            )
+        });
+    }
 }
 
 #[cached]
