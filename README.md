@@ -36,12 +36,17 @@ parse(
 which creates a sellmeier formula. The structure of parse is as follows:
 ```
 parse(
-    formula: The formula the be parsed
-    wavelength idenitifier: The wavelength identifier to identify the wavelength array in the data
-    wavelength axis: The axis points of the wavelength
+    formula:
+        The formula to be parsed
+    wavelength idenitifier:
+        The wavelength identifier to identify the wavelength array in the data
+    wavelength axis:
+        The axis points of the wavelength
     dictionary of single parameters:
-      A dictionary of single parameters, i.e., ones which are not repeated in the formula
+        A dictionary of single parameters,
+        i.e., ones which are not repeated in the formula
     dictionary of repeated parameters:
-      A dictionary of repeated parameters, i.e., ones which are repeated in the `sum[...]` block of the formula.
+        A dictionary of repeated parameters,
+        i.e., ones which are repeated in the `sum[...]` block of the formula.
 )
 ```
