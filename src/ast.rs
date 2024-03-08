@@ -166,61 +166,28 @@ impl EvaluateResult {
     }
 }
 
-impl Mul for EvaluateResult {
-    type Output = EvaluateResult;
+macro_rules! impl_arithmetic {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait for EvaluateResult {
+            type Output = EvaluateResult;
 
-    fn mul(self, other: EvaluateResult) -> EvaluateResult {
-        use EvaluateResult::*;
-        match (self, other) {
-            (Number(x), Number(y)) => EvaluateResult::Number(x * y),
-            (Number(x), Array(y)) => EvaluateResult::Array(x * y),
-            (Array(x), Number(y)) => EvaluateResult::Array(x * y),
-            (Array(x), Array(y)) => EvaluateResult::Array(x * y),
+            fn $method(self, other: EvaluateResult) -> EvaluateResult {
+                use EvaluateResult::*;
+                match (self, other) {
+                    (Number(x), Number(y)) => EvaluateResult::Number(x $op y),
+                    (Number(x), Array(y)) => EvaluateResult::Array(x $op y),
+                    (Array(x), Number(y)) => EvaluateResult::Array(x $op y),
+                    (Array(x), Array(y)) => EvaluateResult::Array(x $op y),
+                }
+            }
         }
-    }
+    };
 }
 
-impl Div for EvaluateResult {
-    type Output = EvaluateResult;
-
-    fn div(self, other: EvaluateResult) -> EvaluateResult {
-        use EvaluateResult::*;
-        match (self, other) {
-            (Number(x), Number(y)) => EvaluateResult::Number(x / y),
-            (Number(x), Array(y)) => EvaluateResult::Array(x / y),
-            (Array(x), Number(y)) => EvaluateResult::Array(x / y),
-            (Array(x), Array(y)) => EvaluateResult::Array(x / y),
-        }
-    }
-}
-
-impl Add for EvaluateResult {
-    type Output = EvaluateResult;
-
-    fn add(self, other: EvaluateResult) -> EvaluateResult {
-        use EvaluateResult::*;
-        match (self, other) {
-            (Number(x), Number(y)) => EvaluateResult::Number(x + y),
-            (Number(x), Array(y)) => EvaluateResult::Array(x + y),
-            (Array(x), Number(y)) => EvaluateResult::Array(x + y),
-            (Array(x), Array(y)) => EvaluateResult::Array(x + y),
-        }
-    }
-}
-
-impl Sub for EvaluateResult {
-    type Output = EvaluateResult;
-
-    fn sub(self, other: EvaluateResult) -> EvaluateResult {
-        use EvaluateResult::*;
-        match (self, other) {
-            (Number(x), Number(y)) => EvaluateResult::Number(x - y),
-            (Number(x), Array(y)) => EvaluateResult::Array(x - y),
-            (Array(x), Number(y)) => EvaluateResult::Array(x - y),
-            (Array(x), Array(y)) => EvaluateResult::Array(x - y),
-        }
-    }
-}
+impl_arithmetic!(Mul, mul, *);
+impl_arithmetic!(Div, div, /);
+impl_arithmetic!(Add, add, +);
+impl_arithmetic!(Sub, sub, -);
 
 impl Expr<'_> {
     pub fn get_representation<'a>(self) -> Result<&'a str, Box<dyn error::Error>> {
